@@ -33,8 +33,7 @@ def get_article_for_publication(sheet_rows):
         if 'нет' == row[index_for_publication_status] and
         week[weekday] == row[index_for_weekday] and
         hour == row[index_for_time]]
-
-    if len(row_with_article_for_publication) != 0:
+    if row_with_article_for_publication:
         return row_with_article_for_publication[0]
 
 
