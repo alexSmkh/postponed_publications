@@ -15,10 +15,6 @@ from google_sheets import auth_in_google_sheets
 import datetime
 from time import sleep
 
-#
-# def verification_of_publication_conditions(row_with_article):
-#     if
-
 
 def get_rows_with_articles_for_publication(sheet_rows):
     index_for_publication_status = 7
