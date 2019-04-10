@@ -55,11 +55,12 @@ def get_rows_with_articles_for_publication(sheet_rows):
 
 
 def create_posts(path_to_picture, message, article):
-    if article[0] == 'да':
+    post_to_vk, post_to_telegram,  post_to_fb, *other = article
+    if post_to_vk == 'да':
         create_post_on_vk(path_to_picture, message)
-    if article[1] == 'да':
+    if post_to_telegram == 'да':
         create_post_on_telegtam(path_to_picture, message)
-    if article[2] == 'да':
+    if post_to_fb == 'да':
         create_post_on_fb(path_to_picture, message)
 
 
