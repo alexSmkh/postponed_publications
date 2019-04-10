@@ -12,14 +12,20 @@ from google_sheets import fetch_updated_sheet_rows
 import datetime
 from time import sleep
 
+#
+# def verification_of_publication_conditions(row_with_article):
+#     if
+
 
 def get_article_for_publication(sheet_rows):
     index_for_publication_status = 7
     index_for_weekday = 3
     index_for_time = 4
+    unpublished_status = 'нет'
     now = datetime.datetime.now()
-    weekday = now.weekday()
-    hour = now.hour
+    present_weekday = now.weekday()
+    present_hour = now.hour
+
     week = [
         'понедельник',
         'вторник',
@@ -27,14 +33,23 @@ def get_article_for_publication(sheet_rows):
         'четверг',
         'пятница',
         'суббота',
-        'воскресенье']
-    row_with_article_for_publication = [
+        'воскресенье'
+    ]
+
+    rows_with_articles_published_today = [
         (counter, row) for counter, row in sheet_rows
-        if 'нет' == row[index_for_publication_status] and
-        week[weekday] == row[index_for_weekday] and
-        hour == row[index_for_time]]
-    if row_with_article_for_publication:
-        return row_with_article_for_publication[0]
+        if week[present_weekday] == row[index_for_weekday]
+    ]
+    rows_with_unpublished_articles = [
+        (counter, row) for counter, row in rows_with_articles_published_today
+        if unpublished_status == row[index_for_publication_status]
+    ]
+    rows_with_articles_for_publication_now = [
+        (counter, row) for counter, row in rows_with_unpublished_articles
+        if present_hour == row[index_for_time]
+    ]
+    if rows_with_articles_for_publication_now:
+        return rows_with_articles_for_publication_now
 
 
 def create_posts(path_to_picture, message, article):
@@ -52,14 +67,14 @@ def main():
     sheet_rows = fetch_sheet_rows(sheet_id)
 
     while True:
-        row_with_article_for_publication = get_article_for_publication(sheet_rows)
-        if row_with_article_for_publication is None:
+        rows_with_articles_for_publication = get_article_for_publication(sheet_rows)
+        if rows_with_articles_for_publication is None:
             sleep(360)
             continue
         index_for_image_hyperlink = 6
         index_for_text_hyperlink = 5
-        image_hyperlink = row_with_article_for_publication[1][index_for_image_hyperlink]
-        text_hyperlink = row_with_article_for_publication[1][index_for_text_hyperlink]
+        image_hyperlink = rows_with_articles_for_publication[1][index_for_image_hyperlink]
+        text_hyperlink = rows_with_articles_for_publication[1][index_for_text_hyperlink]
         image_id = get_id(image_hyperlink)
         text_id = get_id(text_hyperlink)
         image_title, text_title = fetch_files(image_id, text_id)
@@ -67,8 +82,8 @@ def main():
         path_to_picture_for_posting = join(getcwd(), image_title)
         with open(text_title, 'r') as file:
             message = file.read()
-        create_posts(path_to_picture_for_posting, message, row_with_article_for_publication[1])
-        sheet_rows = fetch_updated_sheet_rows(sheet_id, row_with_article_for_publication)
+        create_posts(path_to_picture_for_posting, message, rows_with_articles_for_publication[1])
+        sheet_rows = fetch_updated_sheet_rows(sheet_id, rows_with_articles_for_publication)
 
 
 if __name__ == '__main__':
