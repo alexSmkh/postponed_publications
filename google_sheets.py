@@ -18,7 +18,7 @@ def get_id(formula):
     return file_id[3:]
 
 
-def fetch_sheet_rows(sheet_id):
+def auth_in_google_sheets():
     scopes = ['https://www.googleapis.com/auth/spreadsheets']
     credentials = None
 
@@ -35,32 +35,58 @@ def fetch_sheet_rows(sheet_id):
         with open('token.pickle', 'wb') as token:
             pickle.dump(credentials, token)
     service = build('sheets', 'v4', credentials=credentials)
-    spreadsheet_id = sheet_id
+    return service
+
+
+def auth_in_google_drive():
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()
+    drive = GoogleDrive(gauth)
+    return drive
+
+
+def fetch_sheet_rows(sheet_id, service):
+    # scopes = ['https://www.googleapis.com/auth/spreadsheets']
+    # credentials = None
+    #
+    # if os.path.exists('token.pickle'):
+    #     with open('token.pickle', 'rb') as token:
+    #         credentials = pickle.load(token)
+    # if not credentials or not credentials.valid:
+    #     if credentials and credentials.expired and credentials.refresh_token:
+    #         credentials.refresh(Request())
+    #     else:
+    #         flow = InstalledAppFlow.from_client_secrets_file(
+    #             'credentials.json', scopes)
+    #         credentials = flow.run_local_server()
+    #     with open('token.pickle', 'wb') as token:
+    #         pickle.dump(credentials, token)
+    # service = build('sheets', 'v4', credentials=credentials)
     range_ = 'Лист1!A3:H'
     value_render_option = 'FORMULA'
     date_time_render_option = 'FORMATTED_STRING'
     request = service.spreadsheets().values().get(
-        spreadsheetId=spreadsheet_id,
+        spreadsheetId=sheet_id,
         range=range_,
         valueRenderOption=value_render_option,
         dateTimeRenderOption=date_time_render_option)
     response = request.execute()
-    line_number_in_sheet = 3
-    articles = list(enumerate(response['values'], line_number_in_sheet))
-    return articles
+    row_number_in_sheet = 3
+    rows_with_articles = list(enumerate(response['values'], row_number_in_sheet))
+    return rows_with_articles
 
 
-def fetch_files(image_id, text_id):
-    gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()
-    drive = GoogleDrive(gauth)
 
+def fetch_image_file(image_id, drive):
     picture_metadate = drive.CreateFile({'id': image_id})
     picture_metadate.FetchMetadata(fetch_all=True)
     filename = picture_metadate['title']
     picture = drive.CreateFile({'id': image_id})
     picture.GetContentFile(filename)
+    return filename
 
+
+def fetch_text_file(text_id, drive):
     article_metadata = drive.CreateFile({'id': text_id})
     article_metadata.FetchMetadata(fetch_all=True)
     article_title = article_metadata['title']
@@ -68,17 +94,10 @@ def fetch_files(image_id, text_id):
     article_text.GetContentFile(
         filename='{}.txt'.format(article_title),
         mimetype='text/plain')
-
-    filenames = [filename, '{}.txt'.format(article_title)]
-    return filenames
+    return '{}.txt'.format(article_title)
 
 
-def fetch_updated_sheet_rows(sheet_id, article):
-    with open('token.pickle', 'rb') as token:
-        credentials = pickle.load(token)
-    service = build('sheets', 'v4', credentials=credentials)
-    spreadsheet_id = sheet_id
-    row_number = article[0]
+def update_sheet_row(sheet_id, row_number, service):
     range_for_update = 'H{}'.format(row_number)
     value_input_option = 'USER_ENTERED'
 
@@ -87,21 +106,8 @@ def fetch_updated_sheet_rows(sheet_id, article):
             ['да']
         ],
     }
-    result = service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id, range=range_for_update,
-        valueInputOption=value_input_option, body=body).execute()
-
-
-    range_ = 'Лист1!A3:H'
-    value_render_option = 'FORMULA'
-    date_time_render_option = 'FORMATTED_STRING'
-    request = service.spreadsheets().values().get(
-        spreadsheetId=spreadsheet_id,
-        range=range_,
-        valueRenderOption=value_render_option,
-        dateTimeRenderOption=date_time_render_option)
-    response = request.execute()
-    row_number_for_start = 3
-    updated_sheet_rows = list(enumerate(response['values'], row_number_for_start))
-    return updated_sheet_rows
-
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id,
+        range=range_for_update,
+        valueInputOption=value_input_option,
+        body=body).execute()

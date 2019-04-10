@@ -7,8 +7,11 @@ from post_to_telegram import create_post_on_telegtam
 from post_to_facebook import create_post_on_fb
 from google_sheets import fetch_sheet_rows
 from google_sheets import get_id
-from google_sheets import fetch_files
-from google_sheets import fetch_updated_sheet_rows
+from google_sheets import auth_in_google_drive
+from google_sheets import fetch_image_file
+from google_sheets import fetch_text_file
+from google_sheets import update_sheet_row
+from google_sheets import auth_in_google_sheets
 import datetime
 from time import sleep
 
@@ -17,7 +20,7 @@ from time import sleep
 #     if
 
 
-def get_article_for_publication(sheet_rows):
+def get_rows_with_articles_for_publication(sheet_rows):
     index_for_publication_status = 7
     index_for_weekday = 3
     index_for_time = 4
@@ -35,7 +38,6 @@ def get_article_for_publication(sheet_rows):
         'суббота',
         'воскресенье'
     ]
-
     rows_with_articles_published_today = [
         (counter, row) for counter, row in sheet_rows
         if week[present_weekday] == row[index_for_weekday]
@@ -64,26 +66,33 @@ def create_posts(path_to_picture, message, article):
 def main():
     load_dotenv(join(getcwd(), '.env'))
     sheet_id = getenv('SHEET_ID')
-    sheet_rows = fetch_sheet_rows(sheet_id)
+    auth_drive_object = auth_in_google_drive()
+    auth_sheets_object = auth_in_google_sheets()
+    text_hyperlink_index = 5
+    image_hyperlink_index = 6
 
     while True:
-        rows_with_articles_for_publication = get_article_for_publication(sheet_rows)
+        sheet_rows = fetch_sheet_rows(sheet_id, auth_sheets_object)
+        rows_with_articles_for_publication = get_rows_with_articles_for_publication(
+            sheet_rows
+        )
         if rows_with_articles_for_publication is None:
             sleep(360)
             continue
-        index_for_image_hyperlink = 6
-        index_for_text_hyperlink = 5
-        image_hyperlink = rows_with_articles_for_publication[1][index_for_image_hyperlink]
-        text_hyperlink = rows_with_articles_for_publication[1][index_for_text_hyperlink]
-        image_id = get_id(image_hyperlink)
-        text_id = get_id(text_hyperlink)
-        image_title, text_title = fetch_files(image_id, text_id)
 
-        path_to_picture_for_posting = join(getcwd(), image_title)
-        with open(text_title, 'r') as file:
-            message = file.read()
-        create_posts(path_to_picture_for_posting, message, rows_with_articles_for_publication[1])
-        sheet_rows = fetch_updated_sheet_rows(sheet_id, rows_with_articles_for_publication)
+        for row_number, row_with_article in rows_with_articles_for_publication:
+            image_hyperlink = row_with_article[image_hyperlink_index]
+            text_hyperlink = row_with_article[text_hyperlink_index]
+            image_id = get_id(image_hyperlink)
+            text_id = get_id(text_hyperlink)
+            image_title = fetch_image_file(image_id, auth_drive_object)
+            text_title = fetch_text_file(text_id, auth_drive_object)
+
+            path_to_picture_for_posting = join(getcwd(), image_title)
+            with open(text_title, 'r') as file:
+                message = file.read()
+            create_posts(path_to_picture_for_posting, message, row_with_article)
+            update_sheet_row(sheet_id, row_number, auth_in_google_sheets())
 
 
 if __name__ == '__main__':
